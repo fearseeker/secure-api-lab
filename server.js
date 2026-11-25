@@ -4,39 +4,41 @@ const { users, documents, employees } = require('./data');
 const app = express();
 const PORT = 3000;
 
-// Middleware для обробки JSON
-app.use(express.json());
-
 // --- MIDDLEWARE ---
+
+// Логування запитів
+const loggingMiddleware = (req, res, next) => {
+    const timestamp = new Date().toISOString();
+    const method = req.method;
+    const url = req.url;
+
+    console.log(`[${timestamp}] ${method} ${url}`);
+
+    next();
+};
 
 // Аутентифікація користувача
 const authMiddleware = (req, res, next) => {
-    // Отримуємо логін та пароль із заголовків запиту
     const login = req.headers['x-login'];
     const password = req.headers['x-password'];
 
-    // Шукаємо користувача
     const user = users.find(
         u => u.login === login && u.password === password
     );
 
-    // Якщо користувача не знайдено
     if (!user) {
         return res.status(401).json({
             message: 'Authentication failed. Please provide valid credentials in headers X-Login and X-Password.'
         });
     }
 
-    // Зберігаємо користувача в об'єкті запиту
     req.user = user;
 
-    // Передаємо управління наступному обробнику
     next();
 };
 
 // Авторизація адміністратора
 const adminOnlyMiddleware = (req, res, next) => {
-    // Перевіряємо роль користувача
     if (!req.user || req.user.role !== 'admin') {
         return res.status(403).json({
             message: 'Access denied. Admin role required.'
@@ -46,7 +48,10 @@ const adminOnlyMiddleware = (req, res, next) => {
     next();
 };
 
-// --- КІНЕЦЬ MIDDLEWARE ---
+// --- ГЛОБАЛЬНІ MIDDLEWARE ---
+
+app.use(express.json());
+app.use(loggingMiddleware);
 
 // --- МАРШРУТИ ДЛЯ РЕСУРСІВ ---
 
@@ -66,14 +71,12 @@ app.post('/documents', authMiddleware, (req, res) => {
 });
 
 // Отримання списку співробітників
-// Доступ тільки для адміністратора
 app.get('/employees', authMiddleware, adminOnlyMiddleware, (req, res) => {
     res.status(200).json(employees);
 });
 
-// --- КІНЕЦЬ МАРШРУТІВ ---
+// --- ЗАПУСК СЕРВЕРА ---
 
-// Запуск сервера
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
